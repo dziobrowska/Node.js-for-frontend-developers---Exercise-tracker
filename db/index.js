@@ -1,3 +1,6 @@
+const sqlite = require('sqlite-async');
+
+const { Database } = sqlite;
 const DB_PATH = process.env.NODE_ENV === 'test' ? ':memory:' : 'exercise-tracker.db';
 
 let db;
@@ -8,9 +11,6 @@ let db;
  */
 async function initializeDatabase() {
   try {
-    const sqliteModule = await import('sqlite-async'); 
-    const { Database } = sqliteModule.default;
-
     db = await Database.open(DB_PATH);
     console.log(`Database connected successfully at: ${DB_PATH}`);
 
