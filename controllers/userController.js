@@ -2,7 +2,7 @@ const userModel = require('../models/user');
 
 // POST api/users
 async function postUser(req, res) {
-  const { username } = req.body;
+  const username = req.body.username ? req.body.username.trim() : '';
 
   if (!username) {
     return res.status(400).json({ error: 'Username is required' });

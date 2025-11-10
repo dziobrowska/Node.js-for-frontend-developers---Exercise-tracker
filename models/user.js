@@ -79,7 +79,8 @@ async function getAllUsers() {
 
 
 /**
- * Retrieves the exercise log for a specific user.
+ * Retrieves the exercise log for a specific user, returning the total count 
+ * before applying the limit.
  * @param {string} userId - The ID of the user.
  * @param {string} [from] - Start date filter (YYYY-MM-DD).
  * @param {string} [to] - End date filter (YYYY-MM-DD).
@@ -95,28 +96,40 @@ async function getUserLog(userId, from, to, limit) {
         return null;
     }
 
-    // Build the WHERE clause for filtering
-    let sql = 'SELECT description, duration, date FROM exercises WHERE user_id = ?';
-    const params = [userId];
+    // query for retrieving the actual list of exercise data (the log array)
+    let baseSql = 'SELECT description, duration, date FROM exercises WHERE user_id = ?';
+    // query for retrieving the total number of matching exercises (the count field)
+    let countSql = 'SELECT COUNT(*) AS total_count FROM exercises WHERE user_id = ?';
+
+    const params = [userId]; // this array collects all parameters needed for the final data retrieval query (baseSql)
+    const countParams = [userId]; // this array collects only the filtering parameters needed for the total count query (countSql)
 
     if (from) {
-        sql += ' AND date >= ?';
+        baseSql += ' AND date >= ?';
+        countSql += ' AND date >= ?';
         params.push(from);
+        countParams.push(from);
     }
     if (to) {
-        sql += ' AND date <= ?';
+        baseSql += ' AND date <= ?';
+        countSql += ' AND date <= ?';
         params.push(to);
+        countParams.push(to);
     }
 
-    sql += ' ORDER BY date ASC';
+    // 1st query: Get the total count of matching exercises (before limit)
+    const countResult = await db.get(countSql, countParams);
+    const totalCount = countResult ? countResult.total_count : 0;
+    
+    // 2nd query: Fetch the exercises (with limit and order)
+    baseSql += ' ORDER BY date DESC';
 
     if (limit) {
-        sql += ' LIMIT ?';
-        params.push(limit);
+        baseSql += ' LIMIT ?';
+        params.push(limit); // limit only applies to the log array, not the count
     }
 
-    // Fetch the exercises
-    const exercises = await db.all(sql, params);
+    const exercises = await db.all(baseSql, params);
 
     // Format the log entries
     const log = exercises.map(exercise => ({
@@ -128,7 +141,7 @@ async function getUserLog(userId, from, to, limit) {
     return {
         _id: user._id,
         username: user.username,
-        count: log.length,
+        count: totalCount, // return the total count
         log: log
     };
 }
